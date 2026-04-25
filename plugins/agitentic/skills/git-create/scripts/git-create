@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# git-create — create a new GitHub repo, clone it locally, make an
+# empty initial commit on `main`, and apply repo settings.
+#
+# Usage:
+#   git-create <name> [account] [directory]
+#
+#   <name>      Repository name (just the name, no owner).
+#   [account]   GitHub user or organization to create the repo in.
+#               Defaults to the authenticated `gh` user. Pass "" to use
+#               the default while still specifying [directory].
+#   [directory] Local directory to initialise. Defaults to the repo name.
+#
+# The new repo is created with `gh repo create --public`.
+#
+# Repo settings (applied via `gh repo edit`) default to:
+#   delete-branch-on-merge=true
+#   enable-wiki=false
+#   enable-projects=false
+#   enable-merge-commit=false
+#   enable-squash-merge=false
+# Override per-key from a `[repo]` section in ~/.agitentic (git config
+# format), or set $AGITENTIC_CONFIG to use a different file. Built-in
+# defaults still apply for keys not in the file.
+#
+# Result:
+#   ./<directory>/  newly-initialised repo with one empty commit on
+#                   `main`, with `origin` pointing at github.com/
+#                   <account>/<name>.
+#
+# Requires: git, gh (https://cli.github.com), authenticated.
+
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: git-create <name> [account] [directory]
+
+  <name>      Repository name (just the name, no owner).
+  [account]   GitHub user or organization. Defaults to the authenticated
+              gh user. Pass "" to use the default while still specifying
+              [directory].
+  [directory] Local directory. Defaults to the repo name.
+
+Creates github.com/<account>/<name> (public), initialises ./<directory>,
+makes an empty initial commit on `main`, and pushes.
+
+Applies repo settings via `gh repo edit`. Defaults are listed in the
+script header; override per-key in the [repo] section of ~/.agitentic
+(or $AGITENTIC_CONFIG) using git config format.
+EOF
+  exit 2
+}
+
+# Apply repo settings. Built-in defaults are merged with any overrides
+# from the [repo] section of ~/.agitentic (or $AGITENTIC_CONFIG if set).
+apply_repo_settings() {
+  local repo_slug="$1"
+  local -A settings=(
+    [delete-branch-on-merge]=true
+    [enable-wiki]=false
+    [enable-projects]=false
+    [enable-merge-commit]=false
+    [enable-squash-merge]=false
+  )
+
+  local config_file="${AGITENTIC_CONFIG:-$HOME/.agitentic}"
+  if [[ -f "$config_file" ]]; then
+    echo "==> Reading repo settings from $config_file"
+    local key value
+    while IFS='=' read -r key value; do
+      case "$key" in
+        repo.*) settings["${key#repo.}"]="$value" ;;
+      esac
+    done < <(git config -f "$config_file" --list)
+  fi
+
+  local sorted_keys
+  mapfile -t sorted_keys < <(printf '%s\n' "${!settings[@]}" | LC_ALL=C sort)
+  local edit_args=()
+  local key
+  for key in "${sorted_keys[@]}"; do
+    edit_args+=("--${key}=${settings[$key]}")
+  done
+
+  echo "==> Applying repo settings to ${repo_slug}"
+  gh repo edit "$repo_slug" "${edit_args[@]}"
+}
+
+case "${1:-}" in -h|--help) usage ;; esac
+(( $# >= 1 && $# <= 3 )) || usage
+
+name_arg="$1"
+account="${2:-}"
+target_dir="${3:-}"
+
+if [[ -z "$name_arg" ]]; then
+  echo "git-create: <name> is required" >&2
+  exit 2
+fi
+if [[ "$name_arg" == */* ]]; then
+  echo "git-create: <name> must be just the repo name, not 'owner/name'" >&2
+  echo "            (use [account] for the owner)" >&2
+  exit 1
+fi
+
+command -v git >/dev/null 2>&1 || { echo "git-create: 'git' is required" >&2; exit 1; }
+command -v gh  >/dev/null 2>&1 || { echo "git-create: 'gh' (GitHub CLI) is required" >&2; exit 1; }
+
+if [[ -z "$account" ]]; then
+  account="$(gh api user --jq .login)"
+fi
+
+if [[ -z "$target_dir" ]]; then
+  target_dir="$name_arg"
+fi
+
+if [[ -e "$target_dir" ]]; then
+  echo "git-create: ./$target_dir already exists; refusing to overwrite" >&2
+  exit 1
+fi
+
+repo_slug="${account}/${name_arg}"
+repo_url="https://github.com/${repo_slug}.git"
+
+echo "==> Creating ${repo_slug} on GitHub (public)"
+gh repo create "$repo_slug" --public >/dev/null
+
+echo "==> Initialising ./${target_dir}"
+git init -q -b main "$target_dir"
+git -C "$target_dir" remote add origin "$repo_url"
+git -C "$target_dir" commit -q --allow-empty -m "Initial commit"
+
+echo "==> Pushing initial commit"
+git -C "$target_dir" push -q -u origin main
+
+apply_repo_settings "$repo_slug"
+
+echo "==> Done."
+git -C "$target_dir" remote -v

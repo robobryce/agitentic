@@ -1,5 +1,5 @@
 {
   "name": "agitentic",
-  "version": "0.2.0",
-  "description": "Agentic git/GitHub helpers. Ships the `agitentic:git-fork` skill (fork a repo and clone it with upstream/fork remotes) and the `agitentic:git-sync` skill (sync local main and fork/main to upstream/main)."
+  "version": "0.3.0",
+  "description": "Agentic git/GitHub helpers. Ships `agitentic:git-fork` (fork + clone with upstream/fork remotes), `agitentic:git-sync` (sync local + fork to upstream), and `agitentic:git-create` (create a repo + empty initial commit). All apply standard repo settings, overridable via ~/.agitentic."
 }

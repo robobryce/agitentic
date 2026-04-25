@@ -1,8 +1,8 @@
 # agitentic
 
-Agentic git/GitHub helpers, packaged as
-[agentskills.io](https://agentskills.io)-compliant skills and shipped as a
-Claude Code plugin.
+Git skills for coding agents.
+They are [agentskills.io](https://agentskills.io)-compliant and
+shipped as a Claude Code plugin.
 
 ## Skills
 
@@ -31,9 +31,15 @@ Then invoke a skill by name, e.g. `/agitentic:git-fork`.
 
 ## Use the scripts directly (no plugin)
 
-Each skill is a thin wrapper around a self-contained shell script. The
-scripts are usable on their own and are designed to be droppable on
-your `$PATH` as `git` subcommands:
+Each skill is a thin wrapper around a self-contained shell script.
+You can call them directly:
+
+```bash
+plugins/agitentic/skills/git-fork/scripts/git-fork <repo> [account] [directory]
+plugins/agitentic/skills/git-sync/scripts/git-sync [--branch <branch>] [--force]
+```
+
+Or drop them on your `$PATH` to make them `git` subcommands:
 
 ```bash
 cp plugins/agitentic/skills/git-fork/scripts/git-fork ~/bin/git-fork
@@ -42,11 +48,14 @@ git fork brevdev/brev-cli
 git sync
 ```
 
-### `git-fork <repo> [account]`
+### `git-fork <repo> [account] [directory]`
 
 - `<repo>` — `owner/name`, or a GitHub HTTPS / SSH URL.
 - `[account]` — destination owner for the fork. Defaults to the
-  authenticated `gh` user.
+  authenticated `gh` user. Pass `""` to use the default while still
+  specifying `[directory]`.
+- `[directory]` — local directory to clone into. Defaults to the repo
+  name.
 
 Example:
 
@@ -62,17 +71,17 @@ upstream  https://github.com/brevdev/brev-cli.git (fetch)
 upstream  https://github.com/brevdev/brev-cli.git (push)
 ```
 
-`git-fork` requires `git` and the [GitHub CLI](https://cli.github.com/)
-(`gh`) on your `$PATH`, and `gh` must be authenticated.
-
 ### `git-sync [--branch <branch>] [--force]`
 
 Fast-forward local `<branch>` and `fork/<branch>` to `upstream/<branch>`.
-With no flags, refuses to discard divergent commits; pass `--force` for
-a hard-reset + force-push (`--force-with-lease`).
+Without flags, refuses to discard divergent commits; pass `--force` for
+a hard-reset + force-push (`--force-with-lease`). `<branch>` defaults
+to `upstream`'s default branch.
+
+Example:
 
 ```bash
-$ git sync
+$ git-sync
 ==> Fetching upstream/main
 ==> Fast-forwarding local main to upstream/main
 ==> Pushing main → fork
@@ -81,8 +90,13 @@ $ git sync
   fork/main  → 5ad5c19...
 ```
 
-`git-sync` requires `git` and the repo to have `upstream` and `fork`
-remotes (e.g. set up by `git-fork`).
+## Dependencies
+
+The following must be in your `$PATH`:
+
+- `bash`
+- `git`
+- `gh`, the [GitHub CLI](https://cli.github.com/). It must be authenticated.
 
 ## Project structure
 
@@ -92,15 +106,12 @@ remotes (e.g. set up by `git-fork`).
 plugins/
   agitentic/
     .claude-plugin/
-      plugin.json            - plugin manifest
+      plugin.json            - Plugin manifest
     skills/
-      git-fork/
+      ${SKILL}/              - An individual skill
         SKILL.md             - agentskills.io skill (metadata + instructions)
-        scripts/git-fork     - the script the skill runs
-      git-sync/
-        SKILL.md
-        scripts/git-sync
-.github/workflows/ci.yml     - lint scripts, validate manifests, sanity-check skills
+        scripts/
+.github/workflows/ci.yml     - Lint scripts, validate manifests, sanity-check skills
 LICENSE.txt                  - Apache 2.0 with LLVM exception
 ```
 

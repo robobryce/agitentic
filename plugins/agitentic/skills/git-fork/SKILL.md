@@ -1,6 +1,6 @@
 ---
 name: git-fork
-description: Fork a GitHub repository and clone it locally with the contributor-style two-remote layout — `upstream` points at the original repo (local default branch tracks it) and `fork` points at the fork. Use when the user asks to fork a repo, set up a contributor clone, or wire up upstream + fork remotes for a repo they're about to contribute to. Keywords - fork, clone, upstream, contribute, set up remotes, github fork.
+description: Fork a GitHub repository and clone it locally with the contributor-style two-remote layout — `upstream` points at the original repo (local default branch tracks it) and `fork` points at the fork. Also applies sensible repo settings to the fork (`delete_branch_on_merge=true`, wiki/projects/merge-commit/squash-merge disabled), overridable via `~/.agitentic`. Use when the user asks to fork a repo, set up a contributor clone, or wire up upstream + fork remotes for a repo they're about to contribute to. Keywords - fork, clone, upstream, contribute, set up remotes, github fork.
 license: Apache-2.0 WITH LLVM-exception
 compatibility: Requires git and the GitHub CLI (`gh`), authenticated.
 allowed-tools: Bash
@@ -54,9 +54,39 @@ The script:
    `<account>` is the upstream owner, the fork step is skipped. If
    `<account>` is not the authenticated user, `--org <account>` is used,
    so the caller must have permission to fork into that org.
-3. Adds a `fork` remote pointing at `<account>/<name>`.
+3. Applies repo settings to the fork via `gh repo edit` (skipped if the
+   fork step was skipped). Defaults:
+   - `delete-branch-on-merge=true`
+   - `enable-wiki=false`
+   - `enable-projects=false`
+   - `enable-merge-commit=false`
+   - `enable-squash-merge=false`
+4. Adds a `fork` remote pointing at `<account>/<name>`.
 
 The script refuses to overwrite an existing `./<directory>`.
+
+## Configuration: `~/.agitentic`
+
+Fork repo settings are read from a `[fork]` section in `~/.agitentic`
+(or `$AGITENTIC_CONFIG` if set). The file uses git config format:
+
+```ini
+[fork]
+    delete-branch-on-merge = true
+    enable-wiki = false
+    enable-projects = false
+    enable-merge-commit = false
+    enable-squash-merge = false
+    enable-rebase-merge = true
+```
+
+Keys map directly to `gh repo edit` flags (the leading `--` is added
+by the script). Values must be valid for the corresponding flag —
+booleans (`true`/`false`) for the flags above; strings for flags like
+`description`. Built-in defaults apply for any key not in the file, so
+users can override individual settings without re-specifying the rest.
+
+If `~/.agitentic` doesn't exist, the built-in defaults are used.
 
 ## Example
 

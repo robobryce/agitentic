@@ -57,6 +57,30 @@ git sync
 - `[directory]` — local directory to clone into. Defaults to the repo
   name.
 
+After forking, `git-fork` applies repo settings to the fork via
+`gh repo edit`. Defaults:
+
+| Setting                  | Default |
+|--------------------------|---------|
+| `delete-branch-on-merge` | `true`  |
+| `enable-wiki`            | `false` |
+| `enable-projects`        | `false` |
+| `enable-merge-commit`    | `false` |
+| `enable-squash-merge`    | `false` |
+
+Override any subset of these by writing a `[fork]` section in
+`~/.agitentic` (git config format):
+
+```ini
+[fork]
+    enable-wiki = true
+    enable-merge-commit = true
+```
+
+Keys map to `gh repo edit` flags. Built-in defaults still apply for
+keys not in the file. Set `$AGITENTIC_CONFIG` to read from a different
+path.
+
 Example:
 
 ```bash

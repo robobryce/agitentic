@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# git-sync — sync the local <branch> and fork/<branch> to upstream/<branch>.
+#
+# Usage:
+#   git-sync [--branch <branch>] [--force]
+#
+# Without --branch, the branch is whatever upstream's HEAD points at
+# (usually `main`). The sync is fast-forward only by default; pass
+# --force to allow non-fast-forward updates (hard-reset local <branch>
+# to upstream and force-push to fork). --force discards any divergent
+# commits on <branch>.
+#
+# Requires a git repo with `upstream` and `fork` remotes (see git-fork).
+
+set -euo pipefail
+
+force=0
+branch=""
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: git-sync [--branch <branch>] [--force]
+
+Sync local <branch> and fork/<branch> to upstream/<branch>.
+
+  --branch <branch>  Branch to sync. Defaults to upstream's default
+                     branch (usually `main`).
+  --force            Allow non-fast-forward updates: hard-reset local
+                     <branch> to upstream/<branch> and force-push to
+                     fork. Discards any divergent commits on <branch>.
+EOF
+  exit 2
+}
+
+while (( $# )); do
+  case "$1" in
+    -h|--help) usage ;;
+    --force)   force=1; shift ;;
+    --branch)
+      [[ $# -ge 2 ]] || { echo "git-sync: --branch needs an argument" >&2; exit 2; }
+      branch="$2"; shift 2 ;;
+    *) echo "git-sync: unknown argument: $1" >&2; usage ;;
+  esac
+done
+
+command -v git >/dev/null 2>&1 || { echo "git-sync: 'git' is required" >&2; exit 1; }
+
+git rev-parse --git-dir >/dev/null 2>&1 \
+  || { echo "git-sync: not inside a git repository" >&2; exit 1; }
+
+for r in upstream fork; do
+  git remote get-url "$r" >/dev/null 2>&1 \
+    || { echo "git-sync: missing required remote '$r' (run git-fork first)" >&2; exit 1; }
+done
+
+if [[ -z "$branch" ]]; then
+  if upstream_head="$(git symbolic-ref --quiet --short refs/remotes/upstream/HEAD)"; then
+    branch="${upstream_head#upstream/}"
+  else
+    branch="main"
+  fi
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "git-sync: working tree has uncommitted changes; commit or stash first" >&2
+  exit 1
+fi
+
+current_branch="$(git symbolic-ref --quiet --short HEAD || true)"
+
+echo "==> Fetching upstream/$branch"
+git fetch upstream "$branch"
+upstream_sha="$(git rev-parse "upstream/$branch")"
+
+local_sha="$(git rev-parse --quiet --verify "refs/heads/$branch" || true)"
+
+if [[ -z "$local_sha" ]]; then
+  echo "==> Creating local $branch at upstream/$branch"
+  git update-ref "refs/heads/$branch" "$upstream_sha"
+elif [[ "$local_sha" == "$upstream_sha" ]]; then
+  echo "==> local $branch already at upstream/$branch"
+elif (( force )); then
+  echo "==> Resetting local $branch to upstream/$branch (force)"
+  if [[ "$current_branch" == "$branch" ]]; then
+    git reset --hard "upstream/$branch"
+  else
+    git update-ref "refs/heads/$branch" "$upstream_sha"
+  fi
+elif git merge-base --is-ancestor "$local_sha" "$upstream_sha"; then
+  echo "==> Fast-forwarding local $branch to upstream/$branch"
+  if [[ "$current_branch" == "$branch" ]]; then
+    git merge --ff-only "upstream/$branch"
+  else
+    git update-ref "refs/heads/$branch" "$upstream_sha"
+  fi
+else
+  echo "git-sync: local '$branch' has commits not in upstream/$branch" >&2
+  echo "         pass --force to discard them, or rebase first." >&2
+  exit 1
+fi
+
+echo "==> Pushing $branch → fork"
+if (( force )); then
+  git push --force-with-lease fork "$branch"
+else
+  git push fork "$branch"
+fi
+
+echo "==> Done."
+echo "  local $branch → $(git rev-parse "$branch")"
+fork_sha="$(git rev-parse --quiet --verify "refs/remotes/fork/$branch" || echo "(fetch fork to refresh)")"
+echo "  fork/$branch  → $fork_sha"

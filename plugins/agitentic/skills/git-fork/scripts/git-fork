@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# git-fork — fork a GitHub repo, clone the upstream locally, and
-# configure `upstream` and `fork` remotes.
+# git-fork — fork a GitHub repo, clone the upstream locally, configure
+# `upstream` and `fork` remotes, and apply repo settings to the fork.
 #
 # Usage:
 #   git-fork <repo> [account] [directory]
@@ -10,6 +10,15 @@
 #               currently authenticated `gh` user. Pass "" to use the default
 #               while still specifying [directory].
 #   [directory] Local directory to clone into. Defaults to the repo name.
+#
+# Fork repo settings (applied via `gh repo edit`) default to:
+#   delete-branch-on-merge=true
+#   enable-wiki=false
+#   enable-projects=false
+#   enable-merge-commit=false
+#   enable-squash-merge=false
+# Override per-key from a `[fork]` section in ~/.agitentic (git config
+# format), or set $AGITENTIC_CONFIG to use a different file.
 #
 # Result:
 #   ./<directory>/  cloned from <repo> with two remotes:
@@ -33,8 +42,48 @@ Usage: git-fork <repo> [account] [directory]
 Clones <repo> into ./<directory> with two remotes:
   upstream → original repo (local default branch tracks upstream)
   fork     → github.com/<account>/<name>
+
+Applies fork repo settings via `gh repo edit`. Defaults are listed in
+the script header; override per-key in the [fork] section of
+~/.agitentic (or $AGITENTIC_CONFIG) using git config format.
 EOF
   exit 2
+}
+
+# Apply repo settings to a fork. Built-in defaults are merged with any
+# overrides from the [fork] section of ~/.agitentic (or $AGITENTIC_CONFIG
+# if set). The config file format is git config (INI-like).
+apply_fork_settings() {
+  local fork_slug="$1"
+  local -A settings=(
+    [delete-branch-on-merge]=true
+    [enable-wiki]=false
+    [enable-projects]=false
+    [enable-merge-commit]=false
+    [enable-squash-merge]=false
+  )
+
+  local config_file="${AGITENTIC_CONFIG:-$HOME/.agitentic}"
+  if [[ -f "$config_file" ]]; then
+    echo "==> Reading fork settings from $config_file"
+    local key value
+    while IFS='=' read -r key value; do
+      case "$key" in
+        fork.*) settings["${key#fork.}"]="$value" ;;
+      esac
+    done < <(git config -f "$config_file" --list)
+  fi
+
+  local sorted_keys
+  mapfile -t sorted_keys < <(printf '%s\n' "${!settings[@]}" | LC_ALL=C sort)
+  local edit_args=()
+  local key
+  for key in "${sorted_keys[@]}"; do
+    edit_args+=("--${key}=${settings[$key]}")
+  done
+
+  echo "==> Applying repo settings to ${fork_slug}"
+  gh repo edit "$fork_slug" "${edit_args[@]}"
 }
 
 case "${1:-}" in -h|--help) usage ;; esac
@@ -92,6 +141,7 @@ else
   else
     gh repo fork "${upstream_owner}/${repo_name}" --clone=false --org "$account" >/dev/null
   fi
+  apply_fork_settings "${account}/${repo_name}"
 fi
 
 echo "==> Adding fork remote → ${fork_url}"

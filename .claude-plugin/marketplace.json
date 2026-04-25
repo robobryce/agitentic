@@ -7,7 +7,7 @@
     {
       "name": "agitentic",
       "source": "./plugins/agitentic",
-      "description": "Agentic git/GitHub helpers as agentskills.io-compliant skills. Ships `agitentic:git-fork` and `agitentic:git-sync`."
+      "description": "Agentic git/GitHub helpers as agentskills.io-compliant skills. Ships `agitentic:git-fork`, `agitentic:git-sync`, and `agitentic:git-create`."
     }
   ]
 }

@@ -32,7 +32,7 @@ jobs:
           fi
           for f in "${files[@]}"; do
             echo "==> shellcheck $f"
-            shellcheck -x "$f"
+            shellcheck --source-path=SCRIPTDIR -x "$f"
           done
 
       - name: bash -n (scripts)

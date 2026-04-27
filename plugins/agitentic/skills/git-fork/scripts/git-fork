@@ -50,41 +50,8 @@ EOF
   exit 2
 }
 
-# Apply repo settings to a fork. Built-in defaults are merged with any
-# overrides from the [repo] section of ~/.agitentic (or $AGITENTIC_CONFIG
-# if set). The config file format is git config (INI-like).
-apply_fork_settings() {
-  local fork_slug="$1"
-  local -A settings=(
-    [delete-branch-on-merge]=true
-    [enable-wiki]=false
-    [enable-projects]=false
-    [enable-merge-commit]=false
-    [enable-squash-merge]=false
-  )
-
-  local config_file="${AGITENTIC_CONFIG:-$HOME/.agitentic}"
-  if [[ -f "$config_file" ]]; then
-    echo "==> Reading repo settings from $config_file"
-    local key value
-    while IFS='=' read -r key value; do
-      case "$key" in
-        repo.*) settings["${key#repo.}"]="$value" ;;
-      esac
-    done < <(git config -f "$config_file" --list)
-  fi
-
-  local sorted_keys
-  mapfile -t sorted_keys < <(printf '%s\n' "${!settings[@]}" | LC_ALL=C sort)
-  local edit_args=()
-  local key
-  for key in "${sorted_keys[@]}"; do
-    edit_args+=("--${key}=${settings[$key]}")
-  done
-
-  echo "==> Applying repo settings to ${fork_slug}"
-  gh repo edit "$fork_slug" "${edit_args[@]}"
-}
+# shellcheck source=../../../lib/repo-settings.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../lib/repo-settings.sh"
 
 case "${1:-}" in -h|--help) usage ;; esac
 (( $# >= 1 && $# <= 3 )) || usage
@@ -141,7 +108,7 @@ else
   else
     gh repo fork "${upstream_owner}/${repo_name}" --clone=false --org "$account" >/dev/null
   fi
-  apply_fork_settings "${account}/${repo_name}"
+  agitentic_apply_repo_settings "${account}/${repo_name}"
 fi
 
 echo "==> Adding fork remote → ${fork_url}"

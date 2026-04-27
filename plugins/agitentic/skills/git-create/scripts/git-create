@@ -52,40 +52,8 @@ EOF
   exit 2
 }
 
-# Apply repo settings. Built-in defaults are merged with any overrides
-# from the [repo] section of ~/.agitentic (or $AGITENTIC_CONFIG if set).
-apply_repo_settings() {
-  local repo_slug="$1"
-  local -A settings=(
-    [delete-branch-on-merge]=true
-    [enable-wiki]=false
-    [enable-projects]=false
-    [enable-merge-commit]=false
-    [enable-squash-merge]=false
-  )
-
-  local config_file="${AGITENTIC_CONFIG:-$HOME/.agitentic}"
-  if [[ -f "$config_file" ]]; then
-    echo "==> Reading repo settings from $config_file"
-    local key value
-    while IFS='=' read -r key value; do
-      case "$key" in
-        repo.*) settings["${key#repo.}"]="$value" ;;
-      esac
-    done < <(git config -f "$config_file" --list)
-  fi
-
-  local sorted_keys
-  mapfile -t sorted_keys < <(printf '%s\n' "${!settings[@]}" | LC_ALL=C sort)
-  local edit_args=()
-  local key
-  for key in "${sorted_keys[@]}"; do
-    edit_args+=("--${key}=${settings[$key]}")
-  done
-
-  echo "==> Applying repo settings to ${repo_slug}"
-  gh repo edit "$repo_slug" "${edit_args[@]}"
-}
+# shellcheck source=../../../lib/repo-settings.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../lib/repo-settings.sh"
 
 case "${1:-}" in -h|--help) usage ;; esac
 (( $# >= 1 && $# <= 3 )) || usage
@@ -134,7 +102,7 @@ git -C "$target_dir" commit -q --allow-empty -m "Initial commit"
 echo "==> Pushing initial commit"
 git -C "$target_dir" push -q -u origin main
 
-apply_repo_settings "$repo_slug"
+agitentic_apply_repo_settings "$repo_slug"
 
 echo "==> Done."
 git -C "$target_dir" remote -v

@@ -20,6 +20,8 @@ enable-wiki=false
 enable-projects=false
 enable-merge-commit=false
 enable-squash-merge=false
+enable-auto-merge=true
+allow-update-branch=true
 EOF
 }
 

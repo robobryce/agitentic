@@ -17,6 +17,8 @@
 #   enable-projects=false
 #   enable-merge-commit=false
 #   enable-squash-merge=false
+#   enable-auto-merge=true
+#   allow-update-branch=true
 # Override per-key from a `[repo]` section in ~/.agitentic (git config
 # format), or set $AGITENTIC_CONFIG to use a different file.
 #

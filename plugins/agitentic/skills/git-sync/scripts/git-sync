@@ -2,7 +2,7 @@
 # git-sync — sync the local <branch> and fork/<branch> to upstream/<branch>.
 #
 # Usage:
-#   git-sync [--branch <branch>] [--force]
+#   git-sync [--branch <branch>] [--force] [--prune]
 #
 # Without --branch, the branch is whatever upstream's HEAD points at
 # (usually `main`). The sync is fast-forward only by default; pass
@@ -10,16 +10,21 @@
 # to upstream and force-push to fork). --force discards any divergent
 # commits on <branch>.
 #
+# With --prune, after syncing, delete any other local branches whose
+# commits are all patch-equivalent to commits on upstream/<branch>
+# (i.e. merged via merge, rebase, or squash).
+#
 # Requires a git repo with `upstream` and `fork` remotes (see git-fork).
 
 set -euo pipefail
 
 force=0
+prune=0
 branch=""
 
 usage() {
   cat >&2 <<'EOF'
-Usage: git-sync [--branch <branch>] [--force]
+Usage: git-sync [--branch <branch>] [--force] [--prune]
 
 Sync local <branch> and fork/<branch> to upstream/<branch>.
 
@@ -28,6 +33,11 @@ Sync local <branch> and fork/<branch> to upstream/<branch>.
   --force            Allow non-fast-forward updates: hard-reset local
                      <branch> to upstream/<branch> and force-push to
                      fork. Discards any divergent commits on <branch>.
+  --prune            After syncing, delete local branches whose commits
+                     are all patch-equivalent to commits on
+                     upstream/<branch> (merge, rebase, or squash merged).
+                     The synced branch and the currently checked-out
+                     branch are never deleted.
 EOF
   exit 2
 }
@@ -36,6 +46,7 @@ while (( $# )); do
   case "$1" in
     -h|--help) usage ;;
     --force)   force=1; shift ;;
+    --prune)   prune=1; shift ;;
     --branch)
       [[ $# -ge 2 ]] || { echo "git-sync: --branch needs an argument" >&2; exit 2; }
       branch="$2"; shift 2 ;;
@@ -110,3 +121,30 @@ echo "==> Done."
 echo "  local $branch → $(git rev-parse "$branch")"
 fork_sha="$(git rev-parse --quiet --verify "refs/remotes/fork/$branch" || echo "(fetch fork to refresh)")"
 echo "  fork/$branch  → $fork_sha"
+
+if (( prune )); then
+  echo "==> Pruning local branches merged into upstream/$branch"
+  pruned=0
+  while IFS= read -r candidate; do
+    [[ -n "$candidate" ]] || continue
+    [[ "$candidate" == "$branch" ]] && continue
+    [[ "$candidate" == "$current_branch" ]] && continue
+
+    # git cherry lists commits on <candidate> not already present
+    # (patch-equivalent) on upstream/<branch>. Lines starting with '+'
+    # are unmerged; '-' means a patch-equivalent exists upstream. A
+    # branch is fully merged when every line starts with '-' (or output
+    # is empty, meaning no commits beyond the merge-base).
+    if unmerged="$(git cherry "upstream/$branch" "$candidate" 2>/dev/null | grep -c '^+' || true)"; then
+      if [[ "$unmerged" -eq 0 ]]; then
+        sha="$(git rev-parse --short "$candidate")"
+        git branch -D "$candidate" >/dev/null
+        echo "  deleted $candidate ($sha)"
+        pruned=$((pruned + 1))
+      fi
+    fi
+  done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  if (( pruned == 0 )); then
+    echo "  no merged branches to prune"
+  fi
+fi

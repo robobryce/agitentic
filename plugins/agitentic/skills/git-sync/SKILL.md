@@ -34,7 +34,7 @@ Do **not** use this skill when:
 Run the bundled script from inside the repository:
 
 ```
-scripts/git-sync [--branch <branch>] [--force]
+scripts/git-sync [--branch <branch>] [--force] [--prune]
 ```
 
 - `--branch <branch>` — branch to sync. Defaults to upstream's default
@@ -43,6 +43,10 @@ scripts/git-sync [--branch <branch>] [--force]
   `<branch>` to `upstream/<branch>` and force-pushes (`--force-with-lease`)
   to fork. Use this when the user explicitly says "reset", "overwrite",
   or "discard local commits".
+- `--prune` — after syncing, delete any other local branches whose
+  commits are all patch-equivalent to commits on `upstream/<branch>`.
+  Catches merge, rebase, and squash merges. The synced branch and the
+  currently checked-out branch are never deleted.
 
 The script:
 
@@ -57,6 +61,9 @@ The script:
 5. Pushes `<branch>` to `fork`. With `--force`, uses
    `--force-with-lease` (refuses to clobber commits the local view doesn't
    know about).
+6. With `--prune`, iterates local branches and deletes each one whose
+   commits are all patch-equivalent to `upstream/<branch>` (detected
+   via `git cherry`).
 
 ## Examples
 
@@ -76,6 +83,12 @@ User: "Sync the `release-1.x` branch"
 
 ```
 scripts/git-sync --branch release-1.x
+```
+
+User: "Sync and clean up branches that have already been merged"
+
+```
+scripts/git-sync --prune
 ```
 
 After the script returns, confirm by showing the user

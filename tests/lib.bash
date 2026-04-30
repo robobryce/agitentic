@@ -23,6 +23,10 @@ agitentic_script() {
 # caller's shell has:
 #
 #   $PATH              prefixed with <root>/bin (contains `gh` stub)
+#   $AGITENTIC_NO_GIT_NO_GH_PATH   PATH with coreutils only (no git, no
+#                      gh) — for testing the `command -v git` guard.
+#   $AGITENTIC_NO_GH_PATH          PATH with coreutils + git, no gh —
+#                      for testing the `command -v gh` guard.
 #   $HOME              set to <root> (isolates git config)
 #   $BARE_ROOT         <root>/bare — where repo slugs materialise
 #   $STUB_GH_LOG       <root>/gh.log — every stub invocation logged here
@@ -39,6 +43,8 @@ setup_gh_stub() {
   # PATH stub. Symlink so shellcheck on the real stub covers it.
   ln -sf "$(agitentic_repo_root)/tests/stubs/gh" "$root/bin/gh"
 
+  setup_restricted_paths "$root"
+
   export PATH="$root/bin:$PATH"
   export HOME="$root"
   export BARE_ROOT="$root/bare"
@@ -53,6 +59,28 @@ setup_gh_stub() {
   # Suppress the "hint: Using 'master' as the name of the initial branch"
   # noise that shows up on hosts where init.defaultBranch isn't set.
   git config --global init.defaultBranch main
+}
+
+# Build two minimal-PATH sandbox directories under <root> and export
+# their paths:
+#   $AGITENTIC_NO_GIT_NO_GH_PATH   coreutils only — neither git nor gh.
+#   $AGITENTIC_NO_GH_PATH          coreutils + git — no gh.
+# Host gh/git may well live under /usr/bin alongside the coreutils, so
+# we can't just strip entries from PATH. Build sandboxes from scratch
+# and symlink in only what we want.
+setup_restricted_paths() {
+  local root="$1"
+  mkdir -p "$root/bin-no-git-no-gh" "$root/bin-no-gh"
+  local cmd tool
+  for cmd in dirname basename realpath env cat mktemp find sort rm grep sed; do
+    if tool="$(command -v "$cmd")"; then
+      ln -sf "$tool" "$root/bin-no-git-no-gh/$cmd"
+      ln -sf "$tool" "$root/bin-no-gh/$cmd"
+    fi
+  done
+  ln -sf "$(command -v git)" "$root/bin-no-gh/git"
+  export AGITENTIC_NO_GIT_NO_GH_PATH="$root/bin-no-git-no-gh"
+  export AGITENTIC_NO_GH_PATH="$root/bin-no-gh"
 }
 
 # Seed a bare repo at $BARE_ROOT/<slug>.git with a single commit on main.

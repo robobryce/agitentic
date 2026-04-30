@@ -78,3 +78,35 @@ gh_log_matches() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"already exists"* ]]
 }
+
+@test "git-clone accepts an https URL" {
+  run "$GIT_CLONE" https://github.com/orig/repo.git
+  [ "$status" -eq 0 ]
+  [ -d "$WORK/repo/.git" ]
+  [ "$(git -C "$WORK/repo" config --get remote.upstream.url)" = "https://github.com/orig/repo.git" ]
+}
+
+@test "git-clone accepts an ssh URL" {
+  run "$GIT_CLONE" git@github.com:orig/repo.git
+  [ "$status" -eq 0 ]
+  [ -d "$WORK/repo/.git" ]
+}
+
+@test "git-clone passes \"\" as [account] to use default" {
+  run "$GIT_CLONE" orig/repo "" custom-dir
+  [ "$status" -eq 0 ]
+  [ -d "$WORK/custom-dir/.git" ]
+  [ "$(git -C "$WORK/custom-dir" config --get remote.fork.url)" = "https://github.com/testuser/repo.git" ]
+}
+
+@test "git-clone exits 1 when git is not on PATH" {
+  PATH="$AGITENTIC_NO_GIT_NO_GH_PATH" run /bin/bash "$GIT_CLONE" orig/repo
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"'git' is required"* ]]
+}
+
+@test "git-clone exits 1 when gh is not on PATH" {
+  PATH="$AGITENTIC_NO_GH_PATH" run /bin/bash "$GIT_CLONE" orig/repo
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"'gh' (GitHub CLI) is required"* ]]
+}

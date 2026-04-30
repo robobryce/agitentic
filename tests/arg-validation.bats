@@ -78,6 +78,18 @@ teardown() {
   [[ "$output" == *"Usage: git-fork"* ]]
 }
 
+@test "git-fork rejects too many positional args" {
+  run "$GIT_FORK" a b c d
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-fork"* ]]
+}
+
+@test "git-fork --help prints usage and exits 2" {
+  run "$GIT_FORK" --help
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-fork"* ]]
+}
+
 # ---------------------------------------------------------------------------
 # git-clone
 # ---------------------------------------------------------------------------
@@ -90,6 +102,18 @@ teardown() {
 
 @test "git-clone rejects no arguments" {
   run "$GIT_CLONE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-clone"* ]]
+}
+
+@test "git-clone rejects too many positional args" {
+  run "$GIT_CLONE" a b c d
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-clone"* ]]
+}
+
+@test "git-clone --help prints usage and exits 2" {
+  run "$GIT_CLONE" --help
   [ "$status" -eq 2 ]
   [[ "$output" == *"Usage: git-clone"* ]]
 }
@@ -108,4 +132,10 @@ teardown() {
   run "$GIT_SYNC" --branch
   [ "$status" -eq 2 ]
   [[ "$output" == *"needs an argument"* ]]
+}
+
+@test "git-sync --help prints usage and exits 2" {
+  run "$GIT_SYNC" --help
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-sync"* ]]
 }

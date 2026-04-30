@@ -145,3 +145,32 @@ EOF
   # Nothing should have been created remotely either.
   [ ! -d "$BARE_ROOT/testuser/myrepo.git" ]
 }
+
+@test "git-create reads config from \$AGITENTIC_CONFIG when set" {
+  local config="$TMP/alt-config"
+  cat > "$config" <<'EOF'
+[repo]
+  enable-wiki = true
+[security]
+  dependabot-alerts = false
+EOF
+  AGITENTIC_CONFIG="$config" run "$GIT_CREATE" myrepo
+  [ "$status" -eq 0 ]
+  # The alt config was consulted, not ~/.agitentic (which is absent).
+  local edit_line
+  edit_line=$(grep -E '^gh repo edit testuser/myrepo ' "$STUB_GH_LOG")
+  [[ "$edit_line" == *"--enable-wiki=true"* ]]
+  [ "$(gh_log_matches 'vulnerability-alerts')" -eq 0 ]
+}
+
+@test "git-create exits 1 when git is not on PATH" {
+  PATH="$AGITENTIC_NO_GIT_NO_GH_PATH" run /bin/bash "$GIT_CREATE" myrepo
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"'git' is required"* ]]
+}
+
+@test "git-create exits 1 when gh is not on PATH" {
+  PATH="$AGITENTIC_NO_GH_PATH" run /bin/bash "$GIT_CREATE" myrepo
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"'gh' (GitHub CLI) is required"* ]]
+}

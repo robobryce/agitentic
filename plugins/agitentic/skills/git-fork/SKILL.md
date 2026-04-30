@@ -61,7 +61,11 @@ The script:
    - `enable-projects=false`
    - `enable-merge-commit=false`
    - `enable-squash-merge=false`
-4. Adds a `fork` remote pointing at `<account>/<name>`.
+4. Enables dependabot alerts, dependabot automated security updates,
+   and CodeQL default scanning on the fork (each toggleable via
+   `[security]` in `~/.agitentic`). Failures here are warned-about,
+   not fatal. Skipped when the fork step was skipped.
+5. Adds a `fork` remote pointing at `<account>/<name>`.
 
 The script refuses to overwrite an existing `./<directory>`.
 
@@ -87,6 +91,16 @@ booleans (`true`/`false`) for the flags above; strings for flags like
 users can override individual settings without re-specifying the rest.
 
 If `~/.agitentic` doesn't exist, the built-in defaults are used.
+
+Security settings live in a separate `[security]` section. All three
+default to `true`; set any to `false` to skip that step:
+
+```ini
+[security]
+    dependabot-alerts = true
+    dependabot-security-updates = true
+    codeql-default-setup = true
+```
 
 ## Example
 

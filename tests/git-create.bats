@@ -73,10 +73,12 @@ gh_log_matches() {
 @test "git-create applies default repo settings via gh repo edit" {
   run "$GIT_CREATE" myrepo
   [ "$status" -eq 0 ]
-  # Built-in defaults, sorted alphabetically by key:
+  # Every built-in default from lib/repo-settings.sh should be on the edit line.
   local edit_line
   edit_line=$(grep -E '^gh repo edit testuser/myrepo ' "$STUB_GH_LOG")
+  [[ "$edit_line" == *"--allow-update-branch=true"* ]]
   [[ "$edit_line" == *"--delete-branch-on-merge=true"* ]]
+  [[ "$edit_line" == *"--enable-auto-merge=true"* ]]
   [[ "$edit_line" == *"--enable-merge-commit=false"* ]]
   [[ "$edit_line" == *"--enable-projects=false"* ]]
   [[ "$edit_line" == *"--enable-squash-merge=false"* ]]
@@ -99,6 +101,40 @@ EOF
   # Unspecified keys still get their defaults.
   [[ "$edit_line" == *"--delete-branch-on-merge=true"* ]]
   [[ "$edit_line" == *"--enable-projects=false"* ]]
+}
+
+@test "git-create enables all three security endpoints by default" {
+  run "$GIT_CREATE" myrepo
+  [ "$status" -eq 0 ]
+  [ "$(gh_log_matches '^gh api --silent --method PUT /repos/testuser/myrepo/vulnerability-alerts$')" -eq 1 ]
+  [ "$(gh_log_matches '^gh api --silent --method PUT /repos/testuser/myrepo/automated-security-fixes$')" -eq 1 ]
+  [ "$(gh_log_matches '^gh api --silent --method PATCH /repos/testuser/myrepo/code-scanning/default-setup -f state=configured$')" -eq 1 ]
+}
+
+@test "git-create honours [security] overrides in ~/.agitentic" {
+  cat > "$HOME/.agitentic" <<'EOF'
+[security]
+  dependabot-alerts = false
+  codeql-default-setup = false
+EOF
+  run "$GIT_CREATE" myrepo
+  [ "$status" -eq 0 ]
+  # Disabled endpoints not called.
+  [ "$(gh_log_matches 'vulnerability-alerts')" -eq 0 ]
+  [ "$(gh_log_matches 'code-scanning/default-setup')" -eq 0 ]
+  # Still-enabled endpoint is called.
+  [ "$(gh_log_matches '^gh api --silent --method PUT /repos/testuser/myrepo/automated-security-fixes$')" -eq 1 ]
+}
+
+@test "git-create tolerates a failing security endpoint without failing the run" {
+  export STUB_GH_API_FAIL="code-scanning/default-setup"
+  run "$GIT_CREATE" myrepo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"(warning: CodeQL default setup not enabled"* ]]
+  # Repo still materialised; earlier endpoints still called.
+  [ -d "$BARE_ROOT/testuser/myrepo.git" ]
+  [ "$(gh_log_matches 'vulnerability-alerts')" -eq 1 ]
+  [ "$(gh_log_matches 'automated-security-fixes')" -eq 1 ]
 }
 
 @test "git-create refuses when target directory already exists" {

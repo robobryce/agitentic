@@ -44,6 +44,18 @@ teardown() {
   [[ "$output" == *"Usage: git-create"* ]]
 }
 
+@test "git-create rejects no arguments" {
+  run "$GIT_CREATE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-create"* ]]
+}
+
+@test "git-create rejects empty-string <name>" {
+  run "$GIT_CREATE" ""
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"<name> is required"* ]]
+}
+
 # ---------------------------------------------------------------------------
 # git-fork
 # ---------------------------------------------------------------------------
@@ -60,6 +72,12 @@ teardown() {
   [[ "$output" == *"cannot parse"* ]]
 }
 
+@test "git-fork rejects no arguments" {
+  run "$GIT_FORK"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-fork"* ]]
+}
+
 # ---------------------------------------------------------------------------
 # git-clone
 # ---------------------------------------------------------------------------
@@ -68,6 +86,12 @@ teardown() {
   run "$GIT_CLONE" "not-a-slug"
   [ "$status" -eq 1 ]
   [[ "$output" == *"cannot parse"* ]]
+}
+
+@test "git-clone rejects no arguments" {
+  run "$GIT_CLONE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Usage: git-clone"* ]]
 }
 
 # ---------------------------------------------------------------------------

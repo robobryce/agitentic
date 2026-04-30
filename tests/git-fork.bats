@@ -77,10 +77,13 @@ gh_log_matches() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Skipping fork"* ]]
 
-  # No fork bare and no fork/edit calls should have been made.
+  # No fork bare and no fork/edit/security calls should have been made.
   [ ! -d "$BARE_ROOT/testuser/repo.git" ]
   [ "$(gh_log_matches '^gh repo fork ')" -eq 0 ]
   [ "$(gh_log_matches '^gh repo edit ')" -eq 0 ]
+  [ "$(gh_log_matches 'vulnerability-alerts')" -eq 0 ]
+  [ "$(gh_log_matches 'automated-security-fixes')" -eq 0 ]
+  [ "$(gh_log_matches 'code-scanning/default-setup')" -eq 0 ]
 
   # The local clone still happens; fork remote still gets added (pointing
   # at orig/repo — this is the script's existing behaviour).
@@ -94,11 +97,21 @@ gh_log_matches() {
   [ "$status" -eq 0 ]
   local edit_line
   edit_line=$(grep -E '^gh repo edit testuser/repo ' "$STUB_GH_LOG")
+  [[ "$edit_line" == *"--allow-update-branch=true"* ]]
   [[ "$edit_line" == *"--delete-branch-on-merge=true"* ]]
+  [[ "$edit_line" == *"--enable-auto-merge=true"* ]]
   [[ "$edit_line" == *"--enable-merge-commit=false"* ]]
   [[ "$edit_line" == *"--enable-projects=false"* ]]
   [[ "$edit_line" == *"--enable-squash-merge=false"* ]]
   [[ "$edit_line" == *"--enable-wiki=false"* ]]
+}
+
+@test "git-fork enables all three security endpoints on the fork" {
+  run "$GIT_FORK" orig/repo
+  [ "$status" -eq 0 ]
+  [ "$(gh_log_matches '^gh api --silent --method PUT /repos/testuser/repo/vulnerability-alerts$')" -eq 1 ]
+  [ "$(gh_log_matches '^gh api --silent --method PUT /repos/testuser/repo/automated-security-fixes$')" -eq 1 ]
+  [ "$(gh_log_matches '^gh api --silent --method PATCH /repos/testuser/repo/code-scanning/default-setup -f state=configured$')" -eq 1 ]
 }
 
 @test "git-fork refuses when target directory already exists" {

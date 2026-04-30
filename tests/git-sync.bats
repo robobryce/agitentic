@@ -36,7 +36,46 @@ teardown() {
 }
 
 # ---------------------------------------------------------------------------
-# --prune (forward-compat: skips until git-sync implements --prune)
+# Already-synced / divergent / --force paths
+# ---------------------------------------------------------------------------
+
+@test "git-sync is a no-op when local already matches upstream" {
+  git merge -q --ff-only upstream/main
+  git push -q fork main
+
+  run "$GIT_SYNC"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already at upstream"* ]]
+}
+
+@test "git-sync refuses when local has divergent commits without --force" {
+  git commit -q --allow-empty -m "divergent"
+  local before
+  before="$(git rev-parse main)"
+
+  run "$GIT_SYNC"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"has commits not in upstream"* ]]
+  # Local must not have moved.
+  [ "$(git rev-parse main)" = "$before" ]
+}
+
+@test "git-sync --force discards divergent commits and force-pushes" {
+  git commit -q --allow-empty -m "divergent"
+  local upstream_head divergent
+  upstream_head="$(git rev-parse upstream/main)"
+  divergent="$(git rev-parse main)"
+  [ "$divergent" != "$upstream_head" ]
+
+  run "$GIT_SYNC" --force
+  [ "$status" -eq 0 ]
+
+  [ "$(git rev-parse main)"      = "$upstream_head" ]
+  [ "$(git rev-parse fork/main)" = "$upstream_head" ]
+}
+
+# ---------------------------------------------------------------------------
+# --prune
 #
 # Asserts:
 #   - ff-ancestor branch (strict ancestor of upstream/main)        → pruned
@@ -46,19 +85,7 @@ teardown() {
 #   - main (the synced branch itself)                               → kept
 # ---------------------------------------------------------------------------
 
-prune_supported() {
-  "$GIT_SYNC" --help 2>&1 | grep -q -- '--prune'
-}
-
 @test "git-sync --prune deletes merged branches, keeps novel / current / synced" {
-  # Soft skip so this stays green on main until PR#7 (--prune) lands.
-  # Avoids bats' skip() because bats <1.6 dereferences
-  # $BATS_TEARDOWN_STARTED unguarded, which trips set -u.
-  if ! prune_supported; then
-    echo "# (soft-skip) git-sync --prune not implemented on this branch"
-    return 0
-  fi
-
   git fetch -q upstream main
 
   # ff-ancestor: strict ancestor of upstream/main → should be pruned.

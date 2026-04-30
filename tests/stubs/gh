@@ -20,6 +20,10 @@
 #   STUB_GH_MISSING     comma-separated slugs that `gh repo view` should
 #                       report as missing (404). Anything not listed is
 #                       treated as existing.
+#   STUB_GH_API_FAIL    comma-separated substrings; any `gh api` call
+#                       whose path contains one of them exits non-zero.
+#                       Lets tests exercise the `|| echo warning` branch
+#                       in security-settings.
 #   STUB_GH_LOG         append one line per invocation here. Tests
 #                       inspect this to verify the scripts called gh
 #                       with the expected arguments.
@@ -45,12 +49,41 @@ log_line "$*"
 case "${1:-}" in
   api)
     shift
-    # The scripts only use `gh api user --jq .login`.
+    # `gh api user --jq .login` — the default-account resolver.
     if [[ "${1:-}" == "user" && "${2:-}" == "--jq" && "${3:-}" == ".login" ]]; then
       printf '%s\n' "${STUB_GH_USER:-testuser}"
-    else
-      die "unsupported 'gh api $*'"
+      exit 0
     fi
+
+    # `gh api --silent --method <VERB> /path [-f k=v ...]` — the form used
+    # by agitentic_apply_security_settings for the three GitHub security
+    # endpoints (vulnerability-alerts, automated-security-fixes,
+    # code-scanning/default-setup). No body is needed; we just log the
+    # invocation (already done at entry) and succeed silently.
+    api_method=""
+    api_path=""
+    while (( $# )); do
+      case "$1" in
+        --silent)        shift ;;
+        --method)        api_method="${2:-}"; shift 2 ;;
+        -f|-F|-X|-H)     shift 2 ;;  # flags that take a value
+        /*)              api_path="$1"; shift ;;
+        *)               shift ;;
+      esac
+    done
+
+    if [[ -n "$api_method" && -n "$api_path" ]]; then
+      IFS=',' read -ra fails <<< "${STUB_GH_API_FAIL:-}"
+      for pat in "${fails[@]}"; do
+        if [[ -n "$pat" && "$api_path" == *"$pat"* ]]; then
+          echo "stub gh: simulated failure for $api_method $api_path" >&2
+          exit 1
+        fi
+      done
+      exit 0
+    fi
+
+    die "unsupported 'gh api ...'"
     ;;
 
   repo)

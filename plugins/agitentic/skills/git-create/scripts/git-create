@@ -62,50 +62,8 @@ EOF
 
 # shellcheck source=../../../lib/repo-settings.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../lib/repo-settings.sh"
-
-# Enable dependabot alerts, automated security fixes, and CodeQL default
-# scanning. Each step can be toggled off via [security] in ~/.agitentic
-# (e.g. `security.codeql-default-setup = false`). Failures are warned
-# about but non-fatal — the main repo is already created by this point.
-apply_security_settings() {
-  local repo_slug="$1"
-  local -A settings=(
-    [dependabot-alerts]=true
-    [dependabot-security-updates]=true
-    [codeql-default-setup]=true
-  )
-
-  local config_file="${AGITENTIC_CONFIG:-$HOME/.agitentic}"
-  if [[ -f "$config_file" ]]; then
-    local key value
-    while IFS='=' read -r key value; do
-      case "$key" in
-        security.*) settings["${key#security.}"]="$value" ;;
-      esac
-    done < <(git config -f "$config_file" --list)
-  fi
-
-  echo "==> Applying security settings to ${repo_slug}"
-
-  if [[ "${settings[dependabot-alerts]}" == "true" ]]; then
-    echo "  enabling dependabot alerts"
-    gh api --silent --method PUT "/repos/${repo_slug}/vulnerability-alerts" \
-      || echo "  (warning: dependabot alerts not enabled)"
-  fi
-
-  if [[ "${settings[dependabot-security-updates]}" == "true" ]]; then
-    echo "  enabling dependabot security updates"
-    gh api --silent --method PUT "/repos/${repo_slug}/automated-security-fixes" \
-      || echo "  (warning: dependabot security updates not enabled)"
-  fi
-
-  if [[ "${settings[codeql-default-setup]}" == "true" ]]; then
-    echo "  enabling CodeQL default setup"
-    gh api --silent --method PATCH "/repos/${repo_slug}/code-scanning/default-setup" \
-      -f state=configured \
-      || echo "  (warning: CodeQL default setup not enabled — repo may have no supported languages yet)"
-  fi
-}
+# shellcheck source=../../../lib/security-settings.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../lib/security-settings.sh"
 
 case "${1:-}" in -h|--help) usage ;; esac
 (( $# >= 1 && $# <= 3 )) || usage
@@ -155,7 +113,7 @@ echo "==> Pushing initial commit"
 git -C "$target_dir" push -q -u origin main
 
 agitentic_apply_repo_settings "$repo_slug"
-apply_security_settings "$repo_slug"
+agitentic_apply_security_settings "$repo_slug"
 
 echo "==> Done."
 git -C "$target_dir" remote -v

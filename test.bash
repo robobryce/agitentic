@@ -76,14 +76,23 @@ run_lint() {
     (( fail == 0 )) || return 1
 
     echo "--- plugin / marketplace manifests ---"
-    for f in .claude-plugin/marketplace.json plugins/*/.claude-plugin/plugin.json; do
+    for f in \
+        .agents/plugins/marketplace.json \
+        .claude-plugin/marketplace.json \
+        plugins/*/.claude-plugin/plugin.json \
+        plugins/*/.codex-plugin/plugin.json; do
         echo "==> jq . $f"
         jq -e . "$f" >/dev/null
     done
     jq -e '.name and .owner.name and (.plugins | type == "array" and length > 0)' \
         .claude-plugin/marketplace.json >/dev/null
+    jq -e '.name and .interface.displayName and (.plugins | type == "array" and length > 0) and (.plugins[] | .name and .source.source == "local" and .source.path and .policy.installation and .policy.authentication and .category)' \
+        .agents/plugins/marketplace.json >/dev/null
     for f in plugins/*/.claude-plugin/plugin.json; do
         jq -e '.name and .version and .description' "$f" >/dev/null
+    done
+    for f in plugins/*/.codex-plugin/plugin.json; do
+        jq -e '.name and .version and .description and .skills == "./skills/"' "$f" >/dev/null
     done
 
     echo "--- agentskills.io skills ---"

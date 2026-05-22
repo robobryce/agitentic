@@ -1,0 +1,20 @@
+{
+  "name": "robobryce-agitentic",
+  "interface": {
+    "displayName": "Agitentic"
+  },
+  "plugins": [
+    {
+      "name": "agitentic",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agitentic"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}

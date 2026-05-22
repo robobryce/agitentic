@@ -2,7 +2,7 @@
 
 Git skills for coding agents.
 They are [agentskills.io](https://agentskills.io)-compliant and
-shipped as a Claude Code plugin.
+shipped as an agent plugin for Claude Code, Codex, and Agent Skills-compatible harnesses.
 
 ## Skills
 
@@ -24,16 +24,25 @@ Each skill lives under `plugins/agitentic/skills/<name>/` and is a
 self-contained agentskills.io skill (`SKILL.md` + a `scripts/`
 directory).
 
-## Install (Claude Code)
+## Install
 
-The repo is a Claude Code plugin marketplace. Install via:
+Claude Code:
 
 ```
-/plugin marketplace add robobryce/agitentic
+/plugin marketplace add brycelelbach/agitentic
 /plugin install agitentic@robobryce-agitentic
 ```
 
-Then invoke a skill by name, e.g. `/agitentic:git-fork`.
+Codex:
+
+```bash
+codex plugin marketplace add brycelelbach/agitentic
+codex plugin add agitentic@robobryce-agitentic
+```
+
+Other Agent Skills-compatible harnesses can install from the plugin payload at `plugins/agitentic/` or from the individual skill directories under `plugins/agitentic/skills/`.
+
+Invoke a skill using your host's skill syntax. In Claude Code, use `/agitentic:git-fork`; in Codex, use `$agitentic git-fork`.
 
 ## Use the scripts directly (no plugin)
 
@@ -208,12 +217,16 @@ The following must be in your `$PATH`:
 ## Project structure
 
 ```
+.agents/plugins/
+  marketplace.json           - Codex and agent marketplace manifest
 .claude-plugin/
   marketplace.json           - Claude Code plugin marketplace manifest
 plugins/
   agitentic/
     .claude-plugin/
-      plugin.json            - Plugin manifest
+      plugin.json            - Claude Code plugin manifest
+    .codex-plugin/
+      plugin.json            - Codex plugin manifest
     skills/
       ${SKILL}/              - An individual skill
         SKILL.md             - agentskills.io skill (metadata + instructions)

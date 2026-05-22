@@ -1,0 +1,38 @@
+{
+  "name": "agitentic",
+  "version": "0.3.0",
+  "description": "Agentic git and GitHub helpers for fork, clone, sync, and repository creation workflows.",
+  "author": {
+    "name": "Bryce Lelbach",
+    "url": "https://github.com/brycelelbach"
+  },
+  "homepage": "https://github.com/brycelelbach/agitentic",
+  "repository": "https://github.com/brycelelbach/agitentic",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "keywords": [
+    "git",
+    "github",
+    "fork",
+    "agent-skills",
+    "coding"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agitentic",
+    "shortDescription": "Git and GitHub contributor workflow skills.",
+    "longDescription": "Agitentic packages reusable agent skills for creating contributor clones, wiring upstream and fork remotes, syncing forks to upstream, and creating new GitHub repositories with standard settings.",
+    "developerName": "Bryce Lelbach",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Fork this repository and wire upstream and fork remotes.",
+      "Sync my fork with upstream.",
+      "Create a new GitHub repository."
+    ],
+    "websiteURL": "https://github.com/brycelelbach/agitentic"
+  }
+}

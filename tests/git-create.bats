@@ -81,6 +81,7 @@ gh_log_matches() {
   [[ "$edit_line" == *"--enable-auto-merge=true"* ]]
   [[ "$edit_line" == *"--enable-merge-commit=false"* ]]
   [[ "$edit_line" == *"--enable-projects=false"* ]]
+  [[ "$edit_line" == *"--enable-rebase-merge=true"* ]]
   [[ "$edit_line" == *"--enable-squash-merge=false"* ]]
   [[ "$edit_line" == *"--enable-wiki=false"* ]]
 }

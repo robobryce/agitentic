@@ -66,6 +66,9 @@ The script:
    - `enable-projects=false`
    - `enable-merge-commit=false`
    - `enable-squash-merge=false`
+   - `enable-rebase-merge=true`
+   - `enable-auto-merge=true`
+   - `allow-update-branch=true`
 4. Enables dependabot alerts, dependabot automated security updates,
    and CodeQL default scanning on the fork (each toggleable via
    `[security]` in `~/.agitentic`). Failures here are warned-about,

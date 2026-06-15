@@ -12,7 +12,10 @@
 #                            git-sync tests build synthetic bare repos
 #                            locally; no network or gh auth required.
 #   ./test.bash --secrets    gitleaks scan of full history + working tree
-#   ./test.bash --all        lint + unit + secrets, in order
+#   ./test.bash --package    build the pip wheel, install it into a throwaway
+#                            venv, and smoke-test the `agitentic` console
+#                            script + `agitentic install-plugins`.
+#   ./test.bash --all        lint + unit + secrets + package, in order
 #   ./test.bash -h|--help    print this usage
 
 set -euo pipefail
@@ -123,8 +126,27 @@ run_secrets() {
     gitleaks detect --source . --no-git --redact --verbose --exit-code 1
 }
 
+run_package() {
+    echo "=== package (pip build + install smoke test) ==="
+    need python3
+    local venv build_dir
+    venv="$(mktemp -d)"
+    build_dir="$(mktemp -d)"
+    # shellcheck disable=SC2064  # expand the temp dirs now, at trap time
+    trap "rm -rf '$venv' '$build_dir'" RETURN
+    python3 -m venv "$venv"
+    "$venv/bin/pip" install --quiet --upgrade pip build
+    "$venv/bin/python" -m build --wheel --outdir "$build_dir" .
+    "$venv/bin/pip" install --quiet "$build_dir"/*.whl
+    echo "--- agitentic install-plugins (no host on PATH → warn, exit 0) ---"
+    # Disable the first-run auto-registration so the explicit command is what
+    # we test; with no claude/codex on a clean PATH it must still exit 0.
+    env -i PATH=/usr/bin:/bin HOME="$venv" AGITENTIC_NO_AUTO_INSTALL=1 \
+        "$venv/bin/agitentic" install-plugins
+}
+
 usage() {
-    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 if [ $# -eq 0 ]; then
@@ -138,10 +160,12 @@ for arg in "$@"; do
         --lint)    run_lint ;;
         --unit)    run_unit ;;
         --secrets) run_secrets ;;
+        --package) run_package ;;
         --all)
             run_lint
             run_unit
             run_secrets
+            run_package
             ;;
         -h|--help) usage; exit 0 ;;
         *)

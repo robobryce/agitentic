@@ -26,6 +26,21 @@ directory).
 
 ## Install
 
+### pip (registers the plugin with every host)
+
+`pip install` the package from GitHub, then run `agitentic install-plugins` — it registers the plugin with whichever hosts are present (`claude` and/or `codex`), so the `agitentic:*` skills become discoverable:
+
+```bash
+pip install "git+https://github.com/brycelelbach/agitentic"
+agitentic install-plugins
+```
+
+The first `agitentic` command after install runs the registration automatically (pip itself can't run install-time code, so it's deferred to first use); `agitentic install-plugins` is the explicit/repeat form. It skips any host whose CLI isn't on PATH and is safe to re-run. Set `AGITENTIC_NO_AUTO_INSTALL=1` to disable the automatic first-run registration. The skills are self-contained shell scripts (they need only `git` and `gh` on PATH), so there is nothing else to install.
+
+### Host plugin marketplace
+
+Register the plugin marketplace directly in a host instead:
+
 Claude Code:
 
 ```
